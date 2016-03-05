@@ -34,17 +34,36 @@
 // Steps per round (20=18deg/step).
 #define STEPS_PER_ROUND 20
 
+// 50 Hz if board clock 16MHz
+int timer1_counter = 64286;
+
 void setup()
 {
   pinMode(COILA_N, OUTPUT);
   pinMode(COILA_S, OUTPUT);
   pinMode(COILB_N, OUTPUT);
   pinMode(COILB_S, OUTPUT);  
+
+  noInterrupts();
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCNT1 = timer1_counter;   
+  TCCR1B |= (1 << CS12);    // Set prescaler to 256 
+  TIMSK1 |= (1 << TOIE1);   // Enable timer interrupt
+  interrupts();             
+}
+
+ISR(TIMER1_OVF_vect)         
+{
+  TCNT1 = timer1_counter;   
+
+  stepMotorHalfStepDrive(CW, 2, false);
+   
 }
 
 void loop()
 { 
-   stepMotorHalfStepDrive(CW, 2, false);
+   //stepMotorHalfStepDrive(CW, 60, false);
    // Any other code here as long as it doesn't take longer
    // than one step at the desired RPM.
 }
