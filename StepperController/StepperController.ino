@@ -88,6 +88,7 @@ uint8_t registers[] = {
 uint8_t controlPulseDuration;
 long stepsInterval;
 bool driverEnabled=false;
+bool singleStep=false;
 
 void setup()
 {
@@ -147,6 +148,13 @@ void loop()
     Serial.write("OK\n");
     driverEnabled=false;
   }
+
+   // Step command, runs one step
+  if(cmd=='S')
+  {
+    Serial.write("OK\n");
+    singleStep=true;
+  }
 }
 
 /*
@@ -170,6 +178,12 @@ void setupDriver()
  */
 void stepMotor()
 {
+    if(!driverEnabled && !singleStep)
+    {
+      driveMotor(NEUTRAL,NEUTRAL, 0);
+      return;
+    }
+
     static uint8_t currentStep = 0;
     static long lastStepTime=0;
     
@@ -177,6 +191,8 @@ void stepMotor()
     if(millis()-lastStepTime<stepsInterval) return;
     
     lastStepTime = millis();
+
+    singleStep=false;
     
     currentStep=(currentStep+((registers[R1_ROTATION]==CCW)?-1:1))%8;
     
