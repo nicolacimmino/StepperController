@@ -13,7 +13,7 @@ The controller has the following registers controlling the way the motor is driv
 The controller has a USB Serial interface at 9600 BAUD, see table below for available commands.
 
 | Command  |         Description           | Example | Example Response | 
-| --------- | ---------------------- | ------ |
+| --------- | ---------------------- | ------ | ----- |
 | Rn,v | Write register n with value v. | R0,20 | OK |
 | rn | Read register n. | r0 | 20\nOK |
 | G | Go, start rotation | G | OK |
