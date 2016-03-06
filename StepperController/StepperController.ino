@@ -95,49 +95,54 @@ void setup()
 ISR(TIMER1_OVF_vect)         
 {
   TCNT1 = timer1_counter;   
-
-  stepMotor(CW, 20, true);
-   
+  stepMotor();
 }
+
+uint8_t controlPulseDuration;
+bool holdControl;
+long stepsInterval;
+uint8_t speedRPM;
+uint8_t rotationDirection;
 
 void loop()
 {
   driveSequenceTableOffset = DRIVE_HALF_STEP_OFFSET;
   //driveSequenceTableOffset = DRIVE_FULL_STEP_OFFSET;
   //driveSequenceTableOffset = DRIVE_WAVE_OFFSET;
-}
 
-/*
- * Move the motor one step forwad in the supplied 
- * direction. Using half step drive.
- */
-void stepMotor(byte direction, uint8_t speedRPM, boolean holdControl)
-{
-    static uint8_t currentStep = 0;
-    static long lastStepTime=0;
-    
-    // When spinning slowly we cannot afford small pulses to control
+  speedRPM = 20;
+  
+  holdControl = true;
+  rotationDirection = CW;
+  
+   // When spinning slowly we cannot afford small pulses to control
     // as they won't be enough to win the initial inertia. At higer speed
     // momentum will help so we can keep the pulse shorter, we also need to
     // keep the pulse shorter else we cannot achieved the desired RPM.
-    uint8_t controlPulseDuration = (speedRPM<=20)?50:5;
+    controlPulseDuration = (speedRPM<=20)?50:5;
     if(holdControl) controlPulseDuration=0;
     
     // This is the expected interval in mS between two steps to reach the
     // required RPM.
-    long stepsInterval = ((STEPS_PER_ROUND*75.0f/speedRPM)-controlPulseDuration);
+    stepsInterval = ((STEPS_PER_ROUND*75.0f/speedRPM)-controlPulseDuration);
 
+}
+
+/*
+ * Move the motor one step forwad in the supplied direction. 
+ */
+void stepMotor()
+{
+    static uint8_t currentStep = 0;
+    static long lastStepTime=0;
+    
     // If it's not yet long enough since last step do nothing.
     if(millis()-lastStepTime<stepsInterval) return;
     
     lastStepTime = millis();
     
-    // Move to the next step. This is a bipolar 2-phase motor
-    // so when running half step we have 8 different control
-    // pulses.
-    currentStep=currentStep+((direction==CCW)?-1:1);
-    currentStep=currentStep%8;
-
+    currentStep=(currentStep+((rotationDirection==CCW)?-1:1))%8;
+    
     driveMotor(pgm_read_byte_near(driveSequenceTableOffset + DriverSequence + (currentStep*2)),
                 pgm_read_byte_near(driveSequenceTableOffset + DriverSequence + (currentStep*2) + 1),
                 controlPulseDuration);
