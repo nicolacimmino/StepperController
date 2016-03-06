@@ -79,7 +79,7 @@ int timer1_counter = 64911; // 64286;
 #define R3_HOLD_CTRL  3
 
 uint8_t registers[] = {
-    20,               // R0_SPEED_RPM
+    0,                // R0_SPEED_RPM
     CW,               // R1_ROTATION
     DRIVE_HALF_STEP,  // R2_DRIVE_MODE
     1                 // R3_HOLD_CTRL
@@ -87,6 +87,7 @@ uint8_t registers[] = {
 
 uint8_t controlPulseDuration;
 long stepsInterval;
+bool driverEnabled=false;
 
 void setup()
 {
@@ -96,6 +97,8 @@ void setup()
   pinMode(COILB_S, OUTPUT);  
 
   setupDriver();
+
+  Serial.begin(9600);
   
   noInterrupts();
   TCCR1A = 0;
@@ -114,7 +117,36 @@ ISR(TIMER1_OVF_vect)
 
 void loop()
 {
-  
+  char cmd = Serial.read();
+
+  // Register write eg R0,20
+  if(cmd=='R')
+  {
+    registers[Serial.parseInt()] = Serial.parseInt(); 
+    Serial.write("OK\n");
+    setupDriver(); 
+  }
+
+  // Register read eg r1
+  if(cmd=='r')
+  {
+    Serial.print((int)registers[Serial.parseInt()]); 
+    Serial.write("\nOK\n");
+  }
+
+  // Go command, starts the driver
+  if(cmd=='G')
+  {
+    Serial.write("OK\n");
+    driverEnabled=true;
+  }
+
+  // Halt command, stops the driver
+  if(cmd=='H')
+  {
+    Serial.write("OK\n");
+    driverEnabled=false;
+  }
 }
 
 /*
