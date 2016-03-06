@@ -167,7 +167,7 @@ void setupDriver()
   // momentum will help so we can keep the pulse shorter, we also need to
   // keep the pulse shorter else we cannot achieved the desired RPM.
   controlPulseDuration = (registers[R0_SPEED_RPM]<=20)?50:5;
-  if(registers[R3_HOLD_CTRL]) controlPulseDuration=0;
+  if(registers[R3_HOLD_CTRL]!=1) controlPulseDuration=0;
   
   // This is the expected interval in mS between two steps to reach the required RPM.
   stepsInterval = ((STEPS_PER_ROUND*75.0f/registers[R0_SPEED_RPM])-controlPulseDuration);  
@@ -195,7 +195,7 @@ void stepMotor()
     singleStep=false;
     
     currentStep=(currentStep+((registers[R1_ROTATION]==CCW)?-1:1))%8;
-    
+
     driveMotor(pgm_read_byte_near(registers[R2_DRIVE_MODE] * 8 + DriverSequence + (currentStep*2)),
                 pgm_read_byte_near(registers[R2_DRIVE_MODE] * 8 + DriverSequence + (currentStep*2) + 1),
                 registers[R3_HOLD_CTRL]);
