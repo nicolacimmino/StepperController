@@ -73,12 +73,20 @@ const uint8_t DriverSequence[] PROGMEM  = {
 // 50 Hz if board clock 16MHz
 int timer1_counter = 64911; // 64286;
 
+#define R0_SPEED_RPM  0
+#define R1_ROTATION   1
+#define R2_DRIVE_MODE 2
+#define R3_HOLD_CTRL  3
+
+uint8_t registers[] = {
+    20,               // R0_SPEED_RPM
+    CW,               // R1_ROTATION
+    DRIVE_HALF_STEP,  // R2_DRIVE_MODE
+    1                 // R3_HOLD_CTRL
+};
+
 uint8_t controlPulseDuration;
-bool holdControl;
 long stepsInterval;
-uint8_t speedRPM;
-uint8_t rotationDirection;
-uint8_t driveMode = DRIVE_HALF_STEP;
 
 void setup()
 {
@@ -106,6 +114,7 @@ ISR(TIMER1_OVF_vect)
 
 void loop()
 {
+  
 }
 
 /*
@@ -113,26 +122,15 @@ void loop()
  */
 void setupDriver()
 {
-
-  driveMode = DRIVE_HALF_STEP;
-  //driveMode = DRIVE_FULL_STEP;
-  //driveMode = DRIVE_WAVE;
-
-  speedRPM = 20;
+  // When spinning slowly we cannot afford small pulses to control
+  // as they won't be enough to win the initial inertia. At higer speed
+  // momentum will help so we can keep the pulse shorter, we also need to
+  // keep the pulse shorter else we cannot achieved the desired RPM.
+  controlPulseDuration = (registers[R0_SPEED_RPM]<=20)?50:5;
+  if(registers[R3_HOLD_CTRL]) controlPulseDuration=0;
   
-  holdControl = true;
-  rotationDirection = CW;
-  
-   // When spinning slowly we cannot afford small pulses to control
-    // as they won't be enough to win the initial inertia. At higer speed
-    // momentum will help so we can keep the pulse shorter, we also need to
-    // keep the pulse shorter else we cannot achieved the desired RPM.
-    controlPulseDuration = (speedRPM<=20)?50:5;
-    if(holdControl) controlPulseDuration=0;
-    
-    // This is the expected interval in mS between two steps to reach the
-    // required RPM.
-    stepsInterval = ((STEPS_PER_ROUND*75.0f/speedRPM)-controlPulseDuration);  
+  // This is the expected interval in mS between two steps to reach the required RPM.
+  stepsInterval = ((STEPS_PER_ROUND*75.0f/registers[R0_SPEED_RPM])-controlPulseDuration);  
 }
 
 /*
@@ -148,11 +146,11 @@ void stepMotor()
     
     lastStepTime = millis();
     
-    currentStep=(currentStep+((rotationDirection==CCW)?-1:1))%8;
+    currentStep=(currentStep+((registers[R1_ROTATION]==CCW)?-1:1))%8;
     
-    driveMotor(pgm_read_byte_near(driveMode * 8 + DriverSequence + (currentStep*2)),
-                pgm_read_byte_near(driveMode * 8 + DriverSequence + (currentStep*2) + 1),
-                controlPulseDuration);
+    driveMotor(pgm_read_byte_near(registers[R2_DRIVE_MODE] * 8 + DriverSequence + (currentStep*2)),
+                pgm_read_byte_near(registers[R2_DRIVE_MODE] * 8 + DriverSequence + (currentStep*2) + 1),
+                registers[R3_HOLD_CTRL]);
 }
 
 /*
