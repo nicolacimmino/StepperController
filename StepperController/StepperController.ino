@@ -29,8 +29,7 @@
 #define MINUS 2
 #define NEUTRAL 3
 
-
-const byte DriverSequence[] PROGMEM  = {
+const uint8_t DriverSequence[] PROGMEM  = {
        // Half step drive
        NEUTRAL , PLUS,
        PLUS    , PLUS, 
@@ -60,11 +59,9 @@ const byte DriverSequence[] PROGMEM  = {
        MINUS   , NEUTRAL
     };
 
-#define DRIVE_HALF_STEP_OFFSET  0
-#define DRIVE_FULL_STEP_OFFSET  8
-#define DRIVE_WAVE_OFFSET  16
-
-byte driveSequenceTableOffset = DRIVE_HALF_STEP_OFFSET;
+#define DRIVE_HALF_STEP  0
+#define DRIVE_FULL_STEP  1
+#define DRIVE_WAVE  2
 
 // Rotation direction
 #define CW 0
@@ -76,6 +73,13 @@ byte driveSequenceTableOffset = DRIVE_HALF_STEP_OFFSET;
 // 50 Hz if board clock 16MHz
 int timer1_counter = 64911; // 64286;
 
+uint8_t controlPulseDuration;
+bool holdControl;
+long stepsInterval;
+uint8_t speedRPM;
+uint8_t rotationDirection;
+uint8_t driveMode = DRIVE_HALF_STEP;
+
 void setup()
 {
   pinMode(COILA_N, OUTPUT);
@@ -83,6 +87,8 @@ void setup()
   pinMode(COILB_N, OUTPUT);
   pinMode(COILB_S, OUTPUT);  
 
+  setupDriver();
+  
   noInterrupts();
   TCCR1A = 0;
   TCCR1B = 0;
@@ -98,17 +104,19 @@ ISR(TIMER1_OVF_vect)
   stepMotor();
 }
 
-uint8_t controlPulseDuration;
-bool holdControl;
-long stepsInterval;
-uint8_t speedRPM;
-uint8_t rotationDirection;
-
 void loop()
 {
-  driveSequenceTableOffset = DRIVE_HALF_STEP_OFFSET;
-  //driveSequenceTableOffset = DRIVE_FULL_STEP_OFFSET;
-  //driveSequenceTableOffset = DRIVE_WAVE_OFFSET;
+}
+
+/*
+ * Sets up all parameters for the driver given the current configuration.
+ */
+void setupDriver()
+{
+
+  driveMode = DRIVE_HALF_STEP;
+  //driveMode = DRIVE_FULL_STEP;
+  //driveMode = DRIVE_WAVE;
 
   speedRPM = 20;
   
@@ -124,8 +132,7 @@ void loop()
     
     // This is the expected interval in mS between two steps to reach the
     // required RPM.
-    stepsInterval = ((STEPS_PER_ROUND*75.0f/speedRPM)-controlPulseDuration);
-
+    stepsInterval = ((STEPS_PER_ROUND*75.0f/speedRPM)-controlPulseDuration);  
 }
 
 /*
@@ -143,8 +150,8 @@ void stepMotor()
     
     currentStep=(currentStep+((rotationDirection==CCW)?-1:1))%8;
     
-    driveMotor(pgm_read_byte_near(driveSequenceTableOffset + DriverSequence + (currentStep*2)),
-                pgm_read_byte_near(driveSequenceTableOffset + DriverSequence + (currentStep*2) + 1),
+    driveMotor(pgm_read_byte_near(driveMode * 8 + DriverSequence + (currentStep*2)),
+                pgm_read_byte_near(driveMode * 8 + DriverSequence + (currentStep*2) + 1),
                 controlPulseDuration);
 }
 
@@ -154,7 +161,7 @@ void stepMotor()
  * pulse duration is zero the control signal is left on indefinitely
  * so that hold torque can be taken advantage of.
  */
-void driveMotor(byte coilA, byte coilB, uint8_t controlPulseDuration)
+void driveMotor(uint8_t coilA, uint8_t coilB, uint8_t controlPulseDuration)
 {
     digitalWrite(COILA_N, (coilA==PLUS)?HIGH:LOW);
     digitalWrite(COILA_S, (coilA==MINUS)?HIGH:LOW);
