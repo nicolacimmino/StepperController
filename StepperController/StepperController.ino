@@ -15,6 +15,8 @@
 //    along with this program.  If not, see http://www.gnu.org/licenses/.
 //
 
+#include <avr/pgmspace.h>
+
 #define COILA_N 2
 #define COILA_S 3
 #define COILB_N 4
@@ -27,6 +29,43 @@
 #define MINUS 2
 #define NEUTRAL 3
 
+
+const byte DriverSequence[] PROGMEM  = {
+       // Half step drive
+       NEUTRAL , PLUS,
+       PLUS    , PLUS, 
+       PLUS    , NEUTRAL, 
+       PLUS    , MINUS,
+       NEUTRAL , MINUS,
+       MINUS   , MINUS, 
+       MINUS   , NEUTRAL, 
+       MINUS   , PLUS,  
+       // Full step drive
+       PLUS    , PLUS,
+       PLUS    , PLUS,
+       PLUS    , MINUS,
+       PLUS    , MINUS,
+       MINUS   , MINUS,
+       MINUS   , MINUS,
+       MINUS   , PLUS,
+       MINUS   , PLUS,
+       // Wave drive
+       NEUTRAL , PLUS,
+       NEUTRAL , PLUS,
+       PLUS    , NEUTRAL,
+       PLUS    , NEUTRAL,
+       NEUTRAL , MINUS,
+       NEUTRAL , MINUS,
+       MINUS   , NEUTRAL,
+       MINUS   , NEUTRAL
+    };
+
+#define DRIVE_HALF_STEP_OFFSET  0
+#define DRIVE_FULL_STEP_OFFSET  8
+#define DRIVE_WAVE_OFFSET  16
+
+byte driveSequenceTableOffset = DRIVE_HALF_STEP_OFFSET;
+
 // Rotation direction
 #define CW 0
 #define CCW 1
@@ -35,7 +74,7 @@
 #define STEPS_PER_ROUND 20
 
 // 50 Hz if board clock 16MHz
-int timer1_counter = 64286;
+int timer1_counter = 64911; // 64286;
 
 void setup()
 {
@@ -57,107 +96,22 @@ ISR(TIMER1_OVF_vect)
 {
   TCNT1 = timer1_counter;   
 
-  stepMotorHalfStepDrive(CW, 2, false);
+  stepMotor(CW, 20, true);
    
 }
 
 void loop()
-{ 
-   //stepMotorHalfStepDrive(CW, 60, false);
-   // Any other code here as long as it doesn't take longer
-   // than one step at the desired RPM.
-}
-
-
-
-/*
- * Move the motor one step forwad in the supplied 
- * direction. Using wave drive. There is really no
- * reason to prefer this to the full step, it just
- * gives less torque. It's here mainly for reference.
- */
-void stepMotorWaveDrive(byte direction, uint8_t speedRPM, boolean holdControl)
 {
-    static uint8_t currentStep = 0;
-    static long lastStepTime=0;
-    
-    // When spinning slowly we cannot afford small pulses to control
-    // as they won't be enough to win the initial inertia. At higer speed
-    // momentum will help so we can keep the pulse shorter, we also need to
-    // keep the pulse shorter else we cannot achieved the desired RPM.
-    uint8_t controlPulseDuration = (speedRPM<=20)?100:10;
-    if(holdControl) controlPulseDuration=0;
-
-    // This is the expected interval in mS between two steps to reach the
-    // required RPM.
-    long stepsInterval = ((STEPS_PER_ROUND*150.0f/speedRPM)-controlPulseDuration);
-    
-    // If it's not yet long enough since last step do nothing.
-    if(millis()-lastStepTime<stepsInterval) return;
-    
-    lastStepTime = millis();
-
-    // Move to the next step. This is a bipolar 2-phase motor
-    // so when running in wave we have 4 different control
-    // pulses.
-    currentStep=currentStep+((direction==CCW)?-1:1);
-    currentStep=currentStep%4;
-    
-    switch(currentStep)
-    {
-       case 0: driveMotor(NEUTRAL, PLUS, controlPulseDuration); break;
-       case 1: driveMotor(PLUS, NEUTRAL, controlPulseDuration); break;
-       case 2: driveMotor(NEUTRAL, MINUS, controlPulseDuration); break;
-       case 3: driveMotor(MINUS, NEUTRAL, controlPulseDuration); break;  
-    }
-}
-
-
-/*
- * Move the motor one step forwad in the supplied 
- * direction. Using full step drive.
- */
-void stepMotorFullStepDrive(byte direction, uint8_t speedRPM, boolean holdControl)
-{
-    static uint8_t currentStep = 0;
-    static long lastStepTime=0;
-    
-    // When spinning slowly we cannot afford small pulses to control
-    // as they won't be enough to win the initial inertia. At higer speed
-    // momentum will help so we can keep the pulse shorter, we also need to
-    // keep the pulse shorter else we cannot achieved the desired RPM.
-    uint8_t controlPulseDuration = (speedRPM<=20)?150:10;
-    if(holdControl) controlPulseDuration=0;
-
-    // This is the expected interval in mS between two steps to reach the
-    // required RPM.
-    long stepsInterval = ((STEPS_PER_ROUND*150.0f/speedRPM)-controlPulseDuration);
-    
-    // If it's not yet long enough since last step do nothing.
-    if(millis()-lastStepTime<stepsInterval) return;
-    
-    lastStepTime = millis();
-
-    // Move to the next step. This is a bipolar 2-phase motor
-    // so when running full step we have 4 different control
-    // pulses.
-    currentStep=currentStep+((direction==CCW)?-1:1);
-    currentStep=currentStep%4;
-    
-    switch(currentStep)
-    {
-       case 0: driveMotor(PLUS, PLUS, controlPulseDuration); break;
-       case 1: driveMotor(PLUS, MINUS, controlPulseDuration); break;
-       case 2: driveMotor(MINUS, MINUS, controlPulseDuration); break;
-       case 3: driveMotor(MINUS, PLUS, controlPulseDuration); break;  
-    }
+  driveSequenceTableOffset = DRIVE_HALF_STEP_OFFSET;
+  //driveSequenceTableOffset = DRIVE_FULL_STEP_OFFSET;
+  //driveSequenceTableOffset = DRIVE_WAVE_OFFSET;
 }
 
 /*
  * Move the motor one step forwad in the supplied 
  * direction. Using half step drive.
  */
-void stepMotorHalfStepDrive(byte direction, uint8_t speedRPM, boolean holdControl)
+void stepMotor(byte direction, uint8_t speedRPM, boolean holdControl)
 {
     static uint8_t currentStep = 0;
     static long lastStepTime=0;
@@ -183,20 +137,10 @@ void stepMotorHalfStepDrive(byte direction, uint8_t speedRPM, boolean holdContro
     // pulses.
     currentStep=currentStep+((direction==CCW)?-1:1);
     currentStep=currentStep%8;
-    
-    switch(currentStep)
-    {
-       case 0: driveMotor(NEUTRAL, PLUS, controlPulseDuration); break;
-       case 1: driveMotor(PLUS, PLUS, controlPulseDuration); break;
-       case 2: driveMotor(PLUS, NEUTRAL, controlPulseDuration); break;
-       case 3: driveMotor(PLUS, MINUS, controlPulseDuration); break;
-       case 4: driveMotor(NEUTRAL, MINUS, controlPulseDuration); break;
-       case 5: driveMotor(MINUS, MINUS, controlPulseDuration); break;
-       case 6: driveMotor(MINUS, NEUTRAL, controlPulseDuration); break; 
-       case 7: driveMotor(MINUS, PLUS, controlPulseDuration); break; 
-       
-    }
-    
+
+    driveMotor(pgm_read_byte_near(driveSequenceTableOffset + DriverSequence + (currentStep*2)),
+                pgm_read_byte_near(driveSequenceTableOffset + DriverSequence + (currentStep*2) + 1),
+                controlPulseDuration);
 }
 
 /*
