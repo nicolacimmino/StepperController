@@ -213,7 +213,7 @@ void driveMotor(uint8_t coilA, uint8_t coilB, uint8_t controlPulseDuration)
     digitalWrite(COILA_S, (coilA==MINUS)?HIGH:LOW);
     digitalWrite(COILB_N, (coilB==PLUS)?HIGH:LOW);
     digitalWrite(COILB_S, (coilB==MINUS)?HIGH:LOW);
-    if(coilA!=NEUTRAL && coilB!=NEUTRAL && controlPulseDuration!=0)
+    if((coilA!=NEUTRAL || coilB!=NEUTRAL) && controlPulseDuration!=0)
     {
       delay(controlPulseDuration);
       driveMotor(NEUTRAL,NEUTRAL, 0);
