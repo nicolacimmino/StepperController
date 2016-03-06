@@ -7,8 +7,8 @@ The controller has the following registers controlling the way the motor is driv
 | --------- | ---------------------- | -----------  |
 | R0 | SPEED_RPM | Rotation speed in rounds/minute |
 | R1 | ROTATION | Rotation direction. CW=0, CCW=1 |
-| R2 | DRIVE_MODE | Drive mode. Half step = 1, Full Step = 1, Wave = 2 |
-| R4 | HOLD_CTRL | Hold control power between steps. No = 0, Yes = 1 |
+| R2 | DRIVE_MODE | Drive mode. Half step = 0, Full Step = 1, Wave = 2 |
+| R3 | HOLD_CTRL | Hold control power between steps. No = 0, Yes = 1 |
 
 The controller has a USB Serial interface at 9600 BAUD, see table below for available commands.
 
